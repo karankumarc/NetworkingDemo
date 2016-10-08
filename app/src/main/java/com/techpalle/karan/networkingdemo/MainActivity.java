@@ -1,11 +1,20 @@
 package com.techpalle.karan.networkingdemo;
 
+import android.app.Notification;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.Context;
+import android.content.Intent;
+import android.os.AsyncTask;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.DefaultItemAnimator;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.widget.Toast;
 
+import com.firebase.client.Firebase;
+import com.firebase.client.FirebaseError;
 import com.techpalle.karan.networkingdemo.adapter.ContactsRecyclerAdapter;
 import com.techpalle.karan.networkingdemo.model.Contact;
 
@@ -21,9 +30,11 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Map;
 
 public class MainActivity extends AppCompatActivity {
 
+    private static final int NOTIFICATION_SUCCESSFULLY_LOADED_CONTACTS = 1;
 
     // Name, Email, Mobile number
     //region Contacts Response
@@ -240,6 +251,22 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        //region Firebase test
+        /*Firebase firebase = new Firebase("https://progressmonitor.firebaseio.com");
+
+        firebase.createUser("karan1234@firebase.com", "testpassword", new Firebase.ValueResultHandler<Map<String, Object>>() {
+            @Override
+            public void onSuccess(Map<String, Object> stringObjectMap) {
+                Toast.makeText(MainActivity.this, "Success", Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onError(FirebaseError firebaseError) {
+                Toast.makeText(MainActivity.this, ""+firebaseError.getCode(), Toast.LENGTH_SHORT).show();
+            }
+        });*/
+        //endregion
+
         //region List View related code
         //listViewContacts = (ListView) findViewById(R.id.list_view_contacts);
 
@@ -252,11 +279,22 @@ public class MainActivity extends AppCompatActivity {
 
         String urlString = "http://api.androidhive.info/contacts/";
 
-        response = retrieveDataFromContactsApi(urlString);
+
+
+
+        //response = retrieveDataFromContactsApi(urlString);
+
+        MyTask task = new MyTask();
+
+        task.execute(urlString, "hjsd", "bhjdsfnsd", "hdsjfhndsl");
 
         // Building our data source
-        contactArrayList.addAll(parseJsonDataAndReturnResponseInArrayList(response));
+        //contactArrayList.addAll(parseJsonDataAndReturnResponseInArrayList(response));
 
+
+        //endregion
+    }
+    private void setupRecyclerView(){
         //region Declaring, initializing and setting the recycler view properties
         // Declare and initialize recycler view
         RecyclerView recyclerView = (RecyclerView) findViewById(R.id.recycler_view);
@@ -274,8 +312,6 @@ public class MainActivity extends AppCompatActivity {
 
         // Items show default animation even if we do not set this
         recyclerView.setItemAnimator(new DefaultItemAnimator());
-        //endregion
-
     }
 
     private String retrieveDataFromContactsApi(String url) {
@@ -349,5 +385,110 @@ public class MainActivity extends AppCompatActivity {
         return contactArrayList;
     }
 
+    class MyTask extends AsyncTask<String, Void, String>{
+
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+        }
+
+        @Override
+        protected String doInBackground(String... params) {
+
+            String url = params[0];
+            String second = params[1];
+
+            try {
+
+                Thread.sleep(5000);
+
+                // Build the URL - STEP 1
+                URL urlObject = new URL(url);
+
+                // Open connection with the server - STEP 2
+                HttpURLConnection connection = (HttpURLConnection) urlObject.openConnection();
+
+                // Open an input stream - STEP 3
+                InputStream inputStream = connection.getInputStream();
+
+                // Create an input stream reader - STEP 4
+                InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
+
+                // Create a buffered reader to read the data more efficiently - STEP 5
+                BufferedReader reader = new BufferedReader(inputStreamReader);
+
+                // Read through the buffered reader and create string builder - STEP 6
+                String line = reader.readLine();
+                StringBuffer stringBuffer = new StringBuffer();
+
+                while (line != null){
+                    stringBuffer.append(line);
+                    line = reader.readLine();
+                }
+
+                // Disconnect - STEP 7
+                connection.disconnect();
+
+                return stringBuffer.toString();
+
+
+            } catch (MalformedURLException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            return null;
+
+        }
+
+        @Override
+        protected void onProgressUpdate(Void... values) {
+            super.onProgressUpdate(values);
+        }
+
+        @Override
+        protected void onPostExecute(String s) {
+            super.onPostExecute(s);
+
+            if(s == null){
+                Toast.makeText(MainActivity.this, "Network operation failed", Toast.LENGTH_SHORT).show();
+            } else {
+                //Toast.makeText(MainActivity.this, "Successfully fetched contacts", Toast.LENGTH_SHORT).show();
+                createNotification();
+                contactArrayList.addAll(parseJsonDataAndReturnResponseInArrayList(s));
+                setupRecyclerView();
+            }
+        }
+    }
+
+    private void createNotification(){
+
+        // Build a notification builder object
+        Notification.Builder builder = new Notification.Builder(this);
+        builder.setContentTitle("Contacts").setSmallIcon(R.mipmap.ic_launcher)
+                .setContentText("Successfully loaded");
+
+        // Define the action on click of notification
+        Intent intent = new Intent(this, MainActivity.class);
+
+        // Wrap the intent inside a pending intent and send it to the notification bar
+        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, 0);
+
+        // Set the pending intent to the builder
+        builder.setContentIntent(pendingIntent);
+
+        // Create a notification object
+        Notification notification = builder.getNotification();
+
+        // Get an instance of Notification manager
+        NotificationManager manager =
+                (NotificationManager) this.getSystemService(Context.NOTIFICATION_SERVICE);
+
+        // Call the notify method on the manager object to create a notification
+        manager.notify(NOTIFICATION_SUCCESSFULLY_LOADED_CONTACTS, notification);
+    }
 
 }
